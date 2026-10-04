@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Tesla Dashboard v2</title>
+<title>Tesla Dashboard v2.1</title>
 
 <style>
     * {
@@ -23,7 +23,7 @@
     }
 
     .dashboard {
-        width: min(92vw, 700px);
+        width: min(72vw, 540px);
         text-align: center;
     }
 
@@ -222,6 +222,9 @@ const statusElement =
 let previousSpeed = null;
 let previousTime = null;
 
+// Bruges separat til accelerationsmåling
+let accelerationSpeed = null;
+let accelerationTime = null;
 
 /* -----------------------------
    Tegn speedometerets skala
@@ -389,41 +392,43 @@ if (!navigator.geolocation) {
 
             if (previousTime !== null) {
 
-                const seconds =
-                    (now - previousTime) / 1000;
+    const milliseconds =
+        now - previousTime;
 
-                intervalElement.textContent =
-                    seconds.toFixed(2) + " s";
-            }
+    intervalElement.textContent =
+        Math.round(milliseconds) + " ms";
+}
 
 
             // Acceleration
 
-            if (
-                previousSpeed !== null &&
-                previousTime !== null
-            ) {
+            // Acceleration beregnet over mindst 1 sekund
 
-                const seconds =
-                    (now - previousTime) / 1000;
+if (accelerationTime === null) {
 
-                if (seconds > 0) {
+    accelerationTime = now;
+    accelerationSpeed = kmh;
 
-                    const currentMS =
-                        kmh / 3.6;
+} else {
 
-                    const previousMS =
-                        previousSpeed / 3.6;
+    const elapsed =
+        (now - accelerationTime) / 1000;
 
-                    const acceleration =
-                        (currentMS - previousMS)
-                        / seconds;
+    if (elapsed >= 1.0) {
 
-                    accelerationElement.textContent =
-                        acceleration.toFixed(2)
-                        + " m/s²";
-                }
-            }
+        const currentMS = kmh / 3.6;
+        const oldMS = accelerationSpeed / 3.6;
+
+        const acceleration =
+            (currentMS - oldMS) / elapsed;
+
+        accelerationElement.textContent =
+            acceleration.toFixed(2) + " m/s²";
+
+        accelerationTime = now;
+        accelerationSpeed = kmh;
+    }
+}
 
 
             previousSpeed = kmh;
