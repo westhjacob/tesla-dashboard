@@ -1,60 +1,345 @@
 <!DOCTYPE html>
 <html lang="da">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>GPS Speedometer v1</title>
+<title>Tesla Dashboard v2</title>
 
-    <style>
-        body {
-            margin: 0;
-            background: #111;
-            color: white;
-            font-family: Arial, sans-serif;
+<style>
+    * {
+        box-sizing: border-box;
+    }
 
-            display: flex;
-            align-items: center;
-            justify-content: center;
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background: #101820;
+        color: white;
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
 
-            height: 100vh;
-        }
+    .dashboard {
+        width: min(92vw, 700px);
+        text-align: center;
+    }
 
-        .speedometer {
-            text-align: center;
-        }
+    .gauge {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+    }
 
-        #speed {
-            font-size: 10rem;
-            font-weight: bold;
-            line-height: 1;
-        }
+    svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
 
-        .unit {
-            font-size: 2rem;
-            color: #aaa;
-        }
+    .dial {
+        fill: #17232c;
+        stroke: #56636c;
+        stroke-width: 3;
+    }
 
-        #status {
-            margin-top: 30px;
-            color: #888;
-        }
-    </style>
+    .tick {
+        stroke: #89949b;
+        stroke-width: 2;
+    }
+
+    .tick.major {
+        stroke: white;
+        stroke-width: 4;
+    }
+
+    .speed-label {
+        fill: white;
+        font-size: 18px;
+        text-anchor: middle;
+        dominant-baseline: middle;
+    }
+
+    #needle {
+        stroke: #ff453a;
+        stroke-width: 7;
+        stroke-linecap: round;
+        transform-origin: 250px 250px;
+        transition: transform 0.15s linear;
+    }
+
+    .needle-center {
+        fill: #ddd;
+        stroke: #444;
+        stroke-width: 3;
+    }
+
+    .digital {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 57%;
+        text-align: center;
+    }
+
+    #speed {
+        font-size: clamp(55px, 12vw, 90px);
+        font-weight: bold;
+        line-height: 0.9;
+    }
+
+    .unit {
+        margin-top: 8px;
+        font-size: 22px;
+        color: #aaa;
+    }
+
+    .diagnostics {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .diagnostic {
+        background: #17232c;
+        border-radius: 8px;
+        padding: 10px 5px;
+    }
+
+    .diagnostic .label {
+        font-size: 12px;
+        color: #89949b;
+    }
+
+    .diagnostic .value {
+        margin-top: 4px;
+        font-size: 17px;
+    }
+
+    #status {
+        margin-top: 12px;
+        color: #89949b;
+        font-size: 14px;
+    }
+</style>
 </head>
 
 <body>
 
-<div class="speedometer">
-    <div id="speed">--</div>
-    <div class="unit">km/t</div>
+<div class="dashboard">
+
+    <div class="gauge">
+
+        <svg viewBox="0 0 500 500">
+
+            <circle class="dial"
+                    cx="250"
+                    cy="250"
+                    r="220"/>
+
+            <g id="ticks"></g>
+
+            <line id="needle"
+                  x1="250"
+                  y1="250"
+                  x2="250"
+                  y2="75"/>
+
+            <circle class="needle-center"
+                    cx="250"
+                    cy="250"
+                    r="13"/>
+
+        </svg>
+
+        <div class="digital">
+            <div id="speed">0</div>
+            <div class="unit">km/t</div>
+        </div>
+
+    </div>
+
+    <div class="diagnostics">
+
+        <div class="diagnostic">
+            <div class="label">Nøjagtighed</div>
+            <div class="value" id="accuracy">--</div>
+        </div>
+
+        <div class="diagnostic">
+            <div class="label">Retning</div>
+            <div class="value" id="heading">--</div>
+        </div>
+
+        <div class="diagnostic">
+            <div class="label">Opdatering</div>
+            <div class="value" id="interval">--</div>
+        </div>
+
+        <div class="diagnostic">
+            <div class="label">Acceleration</div>
+            <div class="value" id="acceleration">--</div>
+        </div>
+
+    </div>
+
     <div id="status">Venter på GPS...</div>
+
 </div>
 
 <script>
 
-const speedElement = document.getElementById("speed");
-const statusElement = document.getElementById("status");
+const MAX_SPEED = 160;
+
+// Speedometer går fra -130° til +130°
+const MIN_ANGLE = -130;
+const MAX_ANGLE = 130;
+
+const speedElement =
+    document.getElementById("speed");
+
+const needle =
+    document.getElementById("needle");
+
+const accuracyElement =
+    document.getElementById("accuracy");
+
+const headingElement =
+    document.getElementById("heading");
+
+const intervalElement =
+    document.getElementById("interval");
+
+const accelerationElement =
+    document.getElementById("acceleration");
+
+const statusElement =
+    document.getElementById("status");
+
+let previousSpeed = null;
+let previousTime = null;
+
+
+/* -----------------------------
+   Tegn speedometerets skala
+------------------------------ */
+
+const ticks = document.getElementById("ticks");
+
+function polarPoint(angle, radius) {
+
+    const radians =
+        (angle - 90) * Math.PI / 180;
+
+    return {
+        x: 250 + radius * Math.cos(radians),
+        y: 250 + radius * Math.sin(radians)
+    };
+}
+
+
+for (let speed = 0; speed <= MAX_SPEED; speed += 5) {
+
+    const fraction = speed / MAX_SPEED;
+
+    const angle =
+        MIN_ANGLE +
+        fraction * (MAX_ANGLE - MIN_ANGLE);
+
+    const major = speed % 20 === 0;
+
+    const outer = polarPoint(angle, 205);
+
+    const inner = polarPoint(
+        angle,
+        major ? 180 : 190
+    );
+
+    const line =
+        document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "line"
+        );
+
+    line.setAttribute("x1", inner.x);
+    line.setAttribute("y1", inner.y);
+    line.setAttribute("x2", outer.x);
+    line.setAttribute("y2", outer.y);
+
+    line.setAttribute(
+        "class",
+        major ? "tick major" : "tick"
+    );
+
+    ticks.appendChild(line);
+
+
+    if (major) {
+
+        const labelPosition =
+            polarPoint(angle, 155);
+
+        const text =
+            document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "text"
+            );
+
+        text.setAttribute(
+            "x",
+            labelPosition.x
+        );
+
+        text.setAttribute(
+            "y",
+            labelPosition.y
+        );
+
+        text.setAttribute(
+            "class",
+            "speed-label"
+        );
+
+        text.textContent = speed;
+
+        ticks.appendChild(text);
+    }
+}
+
+
+/* -----------------------------
+   Opdater speedometer
+------------------------------ */
+
+function setSpeed(kmh) {
+
+    kmh = Math.max(
+        0,
+        Math.min(MAX_SPEED, kmh)
+    );
+
+    speedElement.textContent =
+        Math.round(kmh);
+
+    const fraction =
+        kmh / MAX_SPEED;
+
+    const angle =
+        MIN_ANGLE +
+        fraction *
+        (MAX_ANGLE - MIN_ANGLE);
+
+    needle.style.transform =
+        `rotate(${angle}deg)`;
+}
+
+
+/* -----------------------------
+   GPS
+------------------------------ */
 
 if (!navigator.geolocation) {
 
@@ -64,35 +349,95 @@ if (!navigator.geolocation) {
 } else {
 
     navigator.geolocation.watchPosition(
+
         position => {
 
-            const coords = position.coords;
+            const c = position.coords;
 
-            if (coords.speed !== null) {
+            const now = position.timestamp;
 
-                const kmh = coords.speed * 3.6;
+            let kmh = 0;
 
-                speedElement.textContent =
-                    Math.round(kmh);
+            if (c.speed !== null) {
+                kmh = c.speed * 3.6;
+            }
 
-                statusElement.textContent =
-                    "GPS aktiv";
+            setSpeed(kmh);
+
+
+            // GPS accuracy
+
+            accuracyElement.textContent =
+                Math.round(c.accuracy) + " m";
+
+
+            // Heading
+
+            if (c.heading !== null) {
+
+                headingElement.textContent =
+                    Math.round(c.heading) + "°";
 
             } else {
 
-                speedElement.textContent = "--";
-
-                statusElement.textContent =
-                    "GPS-position modtaget, men ingen hastighed";
-
+                headingElement.textContent =
+                    "--";
             }
+
+
+            // Update interval
+
+            if (previousTime !== null) {
+
+                const seconds =
+                    (now - previousTime) / 1000;
+
+                intervalElement.textContent =
+                    seconds.toFixed(2) + " s";
+            }
+
+
+            // Acceleration
+
+            if (
+                previousSpeed !== null &&
+                previousTime !== null
+            ) {
+
+                const seconds =
+                    (now - previousTime) / 1000;
+
+                if (seconds > 0) {
+
+                    const currentMS =
+                        kmh / 3.6;
+
+                    const previousMS =
+                        previousSpeed / 3.6;
+
+                    const acceleration =
+                        (currentMS - previousMS)
+                        / seconds;
+
+                    accelerationElement.textContent =
+                        acceleration.toFixed(2)
+                        + " m/s²";
+                }
+            }
+
+
+            previousSpeed = kmh;
+            previousTime = now;
+
+            statusElement.textContent =
+                "GPS aktiv";
         },
 
         error => {
 
             statusElement.textContent =
-                "GPS fejl: " + error.message;
-
+                "GPS fejl: " +
+                error.message;
         },
 
         {
@@ -101,7 +446,6 @@ if (!navigator.geolocation) {
             timeout: 10000
         }
     );
-
 }
 
 </script>
