@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>GPS Speedometer</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: #111;
+            color: white;
+            font-family: Arial, sans-serif;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            height: 100vh;
+        }
+
+        .speedometer {
+            text-align: center;
+        }
+
+        #speed {
+            font-size: 10rem;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .unit {
+            font-size: 2rem;
+            color: #aaa;
+        }
+
+        #status {
+            margin-top: 30px;
+            color: #888;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="speedometer">
+    <div id="speed">--</div>
+    <div class="unit">km/t</div>
+    <div id="status">Venter på GPS...</div>
+</div>
+
+<script>
+
+const speedElement = document.getElementById("speed");
+const statusElement = document.getElementById("status");
+
+if (!navigator.geolocation) {
+
+    statusElement.textContent =
+        "Browseren understøtter ikke GPS";
+
+} else {
+
+    navigator.geolocation.watchPosition(
+        position => {
+
+            const coords = position.coords;
+
+            if (coords.speed !== null) {
+
+                const kmh = coords.speed * 3.6;
+
+                speedElement.textContent =
+                    Math.round(kmh);
+
+                statusElement.textContent =
+                    "GPS aktiv";
+
+            } else {
+
+                speedElement.textContent = "--";
+
+                statusElement.textContent =
+                    "GPS-position modtaget, men ingen hastighed";
+
+            }
+        },
+
+        error => {
+
+            statusElement.textContent =
+                "GPS fejl: " + error.message;
+
+        },
+
+        {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 10000
+        }
+    );
+
+}
+
+</script>
+
+</body>
+</html>
