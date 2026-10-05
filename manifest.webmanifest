@@ -1,1 +1,11 @@
-
+{
+  "name": "Tesla Dashboard",
+  "short_name": "Dashboard",
+  "description": "GPS dashboard til Tesla",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#101820",
+  "theme_color": "#101820"
+}
