@@ -184,7 +184,10 @@ svg {
     font-size: 12px;
     text-align: center;
 }
-
+/* HUD mode */
+body.hud .dashboard {
+    transform: scaleX(-1);
+}
 
 /*
     Specielt til telefoner i landscape.
@@ -498,6 +501,13 @@ if (!navigator.geolocation) {
     );
 }
 
+    // Hemmelig HUD-knap:
+// Tryk på "GPS aktiv" for at spejlvende hele dashboardet.
+
+statusElement.addEventListener("click", () => {
+    document.body.classList.toggle("hud");
+});
+    
 </script>
 
 </body>
