@@ -1,4 +1,4 @@
-const CACHE_NAME = "tesla-dashboard-v1";
+const CACHE_NAME = "tesla-dashboard-v2.16";
 
 const FILES_TO_CACHE = [
     "./",
