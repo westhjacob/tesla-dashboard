@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Tesla Dashboard v2.12</title>
+<title>Tesla Dashboard v2.13</title>
 
 <style>
     * {
@@ -345,91 +345,54 @@ function setSpeed(kmh) {
 ------------------------------ */
 
 if (!navigator.geolocation) {
-
     statusElement.textContent =
         "Browseren understøtter ikke GPS";
-
 } else {
-
     navigator.geolocation.watchPosition(
-
         position => {
-
             const c = position.coords;
-
             const now = position.timestamp;
-
             let kmh = 0;
-
             if (c.speed !== null) {
                 kmh = c.speed * 3.6;
             }
-
             setSpeed(kmh);
-
-
             // GPS accuracy
-
             accuracyElement.textContent =
                 Math.round(c.accuracy) + " m";
 
-
             // Heading
-
             if (c.heading !== null) {
-
                 headingElement.textContent =
                     Math.round(c.heading) + "°";
-
             } else {
-
                 headingElement.textContent =
                     "--";
             }
 
-
             // Update interval
-
             if (previousTime !== null) {
-
-    const milliseconds =
-        now - previousTime;
-
-    intervalElement.textContent =
-        Math.round(milliseconds) + " ms";
-}
-
+                const milliseconds = now - previousTime;
+                intervalElement.textContent = Math.round(milliseconds) + " ms";
+            }
 
             // Acceleration
-
             // Acceleration beregnet over mindst 1 sekund
 
-if (accelerationTime === null) {
-
-    accelerationTime = now;
-    accelerationSpeed = kmh;
-
-} else {
-
-    const elapsed =
-        (now - accelerationTime) / 1000;
-
-    if (elapsed >= 1.0) {
-
-        const currentMS = kmh / 3.6;
-        const oldMS = accelerationSpeed / 3.6;
-
-        const acceleration =
-            (currentMS - oldMS) / elapsed;
-
-        accelerationElement.textContent =
-            acceleration.toFixed(2) + " m/s²";
-
-        accelerationTime = now;
-        accelerationSpeed = kmh;
-    }
-}
-
+            if (accelerationTime === null) {
+                accelerationTime = now;
+                accelerationSpeed = kmh;
+            } else {
+                const elapsed = (now - accelerationTime) / 1000;
+                if (elapsed >= 1.0) {
+                    const currentMS = kmh / 3.6;
+                    const oldMS = accelerationSpeed / 3.6;
+                    const acceleration = (currentMS - oldMS) / elapsed;
+                    accelerationElement.textContent = acceleration.toFixed(2) + " m/s²";
+                    accelerationTime = now;
+                    accelerationSpeed = kmh;
+                }
+            }
 
             previousSpeed = kmh;
             previousTime = now;
@@ -437,14 +400,11 @@ if (accelerationTime === null) {
             statusElement.textContent =
                 "GPS aktiv";
         },
-
         error => {
-
             statusElement.textContent =
                 "GPS fejl: " +
                 error.message;
         },
-
         {
             enableHighAccuracy: true,
             maximumAge: 0,
